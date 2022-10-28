@@ -1,4 +1,5 @@
 import sympy, random, math, functools, operator, typing
+"""
 class GoldwasserMicaliEncrytedType:
     def __init__(self, c):
         self.c = tuple(c for c in c)
@@ -66,7 +67,6 @@ print(C1)
 print(C2)
 print(C1 * C2)
 print(sk(C1 * C2)) #homomorphism
-
 #highly incomplete
 class BenalohEncryptedType:
     def __init__(self, c):
@@ -103,7 +103,7 @@ sk = BenalohPrivateKey()
 pk = BenalohPublicKey(sk)
 print(sk(pk(4) * pk(9)))
 #27 ekim 2022
-"""
+
 class NaccacheSternEncryptedType:
     pass
 class NaccacheSternKeyGenerator:
@@ -139,9 +139,13 @@ class NaccacheSternPrivateKey:
 class PaillierPublicKey:
     def __init__(self, n, g):
         self.n, self.g = n, g
+    def __str__(self):
+        return f"n: {self.n}\ng: {self.g}"
 class PaillierPrivateKey:
     def __init__(self, l):
         self.l = l
+    def __str__(self):
+        return f"l: {self.l}"
 class PaillierKeyGenerator:
     def __init__(self, k):
         self.k = k
@@ -149,7 +153,6 @@ class PaillierKeyGenerator:
         while True:
             if math.gcd(g := random.randrange(1, n**2), n**2) == 1:
                 if sympy.ntheory.n_order(g, n) % n != 0:
-                    print(sympy.ntheory.n_order(g, n) % n )
                     return g
     def __call__(self):
         p, q = tuple(sympy.randprime(1<<(self.k-1), 1<<self.k) for _ in range(2))
@@ -164,23 +167,43 @@ class PaillierEncryptor:
     def __call__(self, enc_key, m):
         u = self.__find_u(enc_key.n)
         c = pow(enc_key.g, m, enc_key.n**2) * pow(u, enc_key.n, enc_key.n**2) % enc_key.n**2
-        return PaillierEncryptedType(c)
+        return PaillierEncryptedType(c, u, enc_key.n)
 class PaillierDecryptor:
     def __dlfp(self, c, l, n):
         z = pow(c, l, n**2)
-        return (z - 1) // n
+        return (z - 1) // n #sometimes not invertible mod
     def __call__(self, enc_key, dec_key, enc_obj):
-        m = self.__dlfp(enc_obj.c, dec_key.l , enc_key.n) * pow(self.__dlfp(enc_key.g, dec_key.l, enc_key.n), -1, enc_key.n) % enc_key.n
+        m = self.__dlfp(enc_obj.c, dec_key.l, enc_key.n) * pow(self.__dlfp(enc_key.g, dec_key.l, enc_key.n), -1, enc_key.n) % enc_key.n
         return m
 class PaillierEncryptedType:
-    def __init__(self, c):
+    def __init__(self, c, u, n):
         self.c = c
-    def __add__(self, other):
-        pass
+        self.u = u
+        self.n = n
+    def __find_u(self):
+        while math.gcd(self.n, u := random.randrange(1, self.n**2)) != 1: pass
+        return u
+    def rerandomize(self):
+        u_prime = self.__find_u()
+        self.c = self.c * pow(u_prime, self.n, self.n**2) % self.n**2
+        self.u = self.u * u_prime % self.n**2
+    def __str__(self):
+        return f"c: {self.c}\nu: {self.u}"
+    def __add__(self, other): #rerandomize ediyor. kötü oop.
+        eo = PaillierEncryptedType(self.c * other.c, self.u * other.u % self.n, self.n)
+        eo.rerandomize()
+        return eo
 kg = PaillierKeyGenerator(5)
 ek, dk = kg()
+print(ek)
+print(dk)
 er, dr = PaillierEncryptor(), PaillierDecryptor()
-eo = er(ek, 45)
-do = dr(ek, dk, eo)
+eo1 = er(ek, 34)
+eo2 = er(ek, 35)
+do = dr(ek, dk, eo1 + eo2)
 print(do)
-
+print(eo1)
+print(dr(ek, dk, eo1))
+eo1.rerandomize()
+print(eo1)
+print(dr(ek, dk, eo1))
