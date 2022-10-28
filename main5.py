@@ -1,5 +1,4 @@
 import sympy, random, math, functools, operator, typing
-"""
 class GoldwasserMicaliEncrytedType:
     def __init__(self, c):
         self.c = tuple(c for c in c)
@@ -135,7 +134,6 @@ class NaccacheSternPublicKey:
     pass
 class NaccacheSternPrivateKey:
     pass
-"""
 class PaillierPublicKey:
     def __init__(self, n, g):
         self.n, self.g = n, g
