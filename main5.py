@@ -134,6 +134,7 @@ class NaccacheSternPublicKey:
     pass
 class NaccacheSternPrivateKey:
     pass
+
 class PaillierPublicKey:
     def __init__(self, n, g):
         self.n, self.g = n, g
@@ -188,7 +189,11 @@ class PaillierEncryptedType:
     def __str__(self):
         return f"c: {self.c}\nu: {self.u}"
     def __add__(self, other): #rerandomize ediyor. kötü oop.
-        eo = PaillierEncryptedType(self.c * other.c, self.u * other.u % self.n, self.n)
+        eo = PaillierEncryptedType(self.c * other.c % self.n**2, self.u * other.u % self.n**2, self.n)
+        eo.rerandomize()
+        return eo
+    def __sub__(self, other): #sonuç negatifse cortluyor.
+        eo = PaillierEncryptedType(self.c * pow(other.c, -1, self.n**2), self.u * pow(self.u, -1, self.n**2), self.n)
         eo.rerandomize()
         return eo
 kg = PaillierKeyGenerator(5)
@@ -204,4 +209,90 @@ print(eo1)
 print(dr(ek, dk, eo1))
 eo1.rerandomize()
 print(eo1)
+print(dr(ek, dk, eo1))
+do2 = dr(ek, dk, eo2 - eo1)
+print(do2)
+
+class DamgardJurikPublicKey:
+    def __init__(self, n, g, s):
+        self.n = n
+        self.g = g
+        self.s = s
+class DamgardJurikPrivateKey:
+    def __init__(self, d):
+        self.d = d
+class DamgardJurikKeyGenerator:
+    def __init__(self, bitlength, s):
+        self.bitlength = bitlength
+        self.s = s
+    def __find_pq(self):
+        return (sympy.randprime(1<<self.bitlength-1, 1<<self.bitlength) for _ in range(2))
+    def __find_jx(self, n):
+        while math.gcd(j:=random.randrange(1, n**self.s), n) != 1 or math.gcd(x := random.randrange(1, n), n) != 1: pass
+        return j, x
+    def __find_g(self, n, j, x):
+        g = pow(1+j, self.s, n**(self.s+1)) * x % n**(self.s+1)
+        return g
+    def __find_d(self, n, l): #very bad
+        print(f"__find_d speaking: l == {l}")
+        while (d:=random.randrange(l,n) % l) != 0 or math.gcd(d, n) != 1:
+            pass
+            print(f"failed d: {d}")
+        print("find_d terminated")
+        return d
+    def __call__(self):
+        p, q = self.__find_pq()
+        n = p * q
+        l = n - p - q + 1
+        j, x = self.__find_jx(n)
+        g = self.__find_g(n, j, x)
+        d = self.__find_d(n, l)
+        return DamgardJurikPublicKey(n, g, self.s), DamgardJurikPrivateKey(d)
+class DamgardJurikEncryptedType:
+    def __init__(self, c):
+        self.c = c
+class DamgardJurikEncryptor:
+    def __find_u(self, n):
+        while math.gcd(u := random.randrange(1, n), n) != 1: pass
+        print("line 248 terminated")
+        return u
+    def __call__(self, m, enc_key: DamgardJurikPublicKey):
+        u = self.__find_u(enc_key.n)
+        c = pow(enc_key.g, m, enc_key.n**(enc_key.s+1)) * pow(u, enc_key.n**enc_key.s, enc_key.n**(enc_key.s+1)) % enc_key.n**(enc_key.s+1)
+        return DamgardJurikEncryptedType(c)
+class DamgardJurikDecryptor:
+    def __ldj(self, c, n, j):
+        z = c % n**(j+1)
+        u = (z-1)//n
+        return u
+    def __dlfdj(self, c, n, s):
+        i = 0
+        for j in range(1, s+1):
+            h1 = self.__ldj(c, n, j)
+            h2 = i
+            print(f"outer loop j: {j}")
+            for k in range(2, j+1):
+                i -= 1
+                h2 %= n**j
+                h1 -= h2*(pow(h2, n**j, n**(k-1)))//math.factorial(k)
+                h1 %= n**j
+            i = h1
+        print("__dljdj terminated")
+        return i
+    def __call__(self, enc_key: DamgardJurikPublicKey, dec_key: DamgardJurikPrivateKey, enc_obj: DamgardJurikEncryptedType):
+        ntps = enc_key.n**enc_key.s
+        print("call received")
+        a = pow(enc_obj.c, dec_key.d, ntps*enc_key.n)
+        j = self.__dlfdj(a, enc_key.n, enc_key.s)
+        print(f"g: {enc_key.g}")
+        b = pow(enc_key.g, dec_key.d, enc_key.n**(enc_key.s+1))
+        jp = self.__dlfdj(b, enc_key.n, enc_key.s)
+        print(f"b: {b}")
+        print(f"jp: {jp}")
+        jpp = pow(jp, -1, ntps)
+        return j * jpp
+kg = DamgardJurikKeyGenerator(4, 5)
+ek, dk = kg()
+er, dr = DamgardJurikEncryptor(), DamgardJurikDecryptor()
+eo1 = er(5, ek)
 print(dr(ek, dk, eo1))
