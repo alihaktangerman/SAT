@@ -140,6 +140,11 @@ class PaillierPublicKey:
         self.n, self.g = n, g
     def __str__(self):
         return f"n: {self.n}\ng: {self.g}"
+class PaillierPublicKey:
+    def __init__(self, n, g):
+        self.n, self.g = n, g
+    def __str__(self):
+        return f"n: {self.n}\ng: {self.g}"
 class PaillierPrivateKey:
     def __init__(self, l):
         self.l = l
@@ -149,60 +154,56 @@ class PaillierKeyGenerator:
     def __init__(self, k):
         self.k = k
     def __find_g(self, n):
-        while True:
-            if math.gcd(g := random.randrange(1, n**2), n**2) == 1:
-                if sympy.ntheory.n_order(g, n) % n != 0:
-                    return g
+        return n + 1
     def __call__(self):
-        p, q = tuple(sympy.randprime(1<<(self.k-1), 1<<self.k) for _ in range(2))
+        p, q = tuple(sympy.randprime(1 << (self.k-1), 1 << self.k) for _ in range(2))
         n = p * q
         l = n - p - q + 1
         g = self.__find_g(n)
         return PaillierPublicKey(n, g), PaillierPrivateKey(l)
 class PaillierEncryptor:
     def __find_u(self, n):
-        while math.gcd(n, u := random.randrange(1, n**2)) != 1: pass
+        while math.gcd(n, u := random.randrange(1, n)) != 1: pass #n**2 değil n
         return u
-    def __call__(self, enc_key, m):
+    def __call__(self, enc_key, m): #iyi gözüküyor
         u = self.__find_u(enc_key.n)
         c = pow(enc_key.g, m, enc_key.n**2) * pow(u, enc_key.n, enc_key.n**2) % enc_key.n**2
-        return PaillierEncryptedType(c, u, enc_key.n)
+        return PaillierEncryptedType(c)
 class PaillierDecryptor:
     def __dlfp(self, c, l, n):
         z = pow(c, l, n**2)
-        return (z - 1) // n #sometimes not invertible mod
-    def __call__(self, enc_key, dec_key, enc_obj):
-        m = self.__dlfp(enc_obj.c, dec_key.l, enc_key.n) * pow(self.__dlfp(enc_key.g, dec_key.l, enc_key.n), -1, enc_key.n) % enc_key.n
+        return (z - 1) // n
+    def __call__(self, enc_key, dec_key, enc_obj): #iyi gözüküyor
+        m = self.__dlfp(enc_obj.c, dec_key.l, enc_key.n) * pow(dec_key.l, -1, enc_key.n) % enc_key.n
         return m
 class PaillierEncryptedType:
-    def __init__(self, c, u, n):
+    def __init__(self, c):
         self.c = c
-        self.u = u
-        self.n = n
-    def __find_u(self):
-        while math.gcd(self.n, u := random.randrange(1, self.n**2)) != 1: pass
+    @classmethod
+    def __find_u(cls):
+        while math.gcd(cls.enc_key.n, u := random.randrange(1, cls.enc_key.n)) != 1: pass #n**2 değil n, kötü oop
         return u
     def rerandomize(self):
-        u_prime = self.__find_u()
-        self.c = self.c * pow(u_prime, self.n, self.n**2) % self.n**2
-        self.u = self.u * u_prime % self.n**2
-    def __str__(self):
-        return f"c: {self.c}\nu: {self.u}"
-    def __add__(self, other): #rerandomize ediyor. kötü oop.
-        eo = PaillierEncryptedType(self.c * other.c % self.n**2, self.u * other.u % self.n**2, self.n)
+        u_prime = PaillierEncryptedType.__find_u()
+        self.c = self.c * pow(u_prime, PaillierEncryptedType.enc_key.n, PaillierEncryptedType.enc_key.n**2) % PaillierEncryptedType.enc_key.n**2
+    def __add__(self, other):
+        eo = PaillierEncryptedType(self.c * other.c)
         eo.rerandomize()
         return eo
     def __sub__(self, other): #sonuç negatifse cortluyor.
-        eo = PaillierEncryptedType(self.c * pow(other.c, -1, self.n**2), self.u * pow(self.u, -1, self.n**2), self.n)
+        eo = PaillierEncryptedType(self.c * pow(other.c, -1, PaillierEncryptedType.enc_key.n**2) % PaillierEncryptedType.enc_key.n**2)
         eo.rerandomize()
         return eo
-kg = PaillierKeyGenerator(5)
+    def __str__(self):
+        return f"c: {self.c}"
+kg = PaillierKeyGenerator(128)
 ek, dk = kg()
+PaillierEncryptedType.enc_key = ek
 print(ek)
 print(dk)
 er, dr = PaillierEncryptor(), PaillierDecryptor()
-eo1 = er(ek, 34)
-eo2 = er(ek, 35)
+eo1 = er(ek, 2030)
+eo2 = er(ek, 119119119)
 do = dr(ek, dk, eo1 + eo2)
 print(do)
 print(eo1)
@@ -212,6 +213,11 @@ print(eo1)
 print(dr(ek, dk, eo1))
 do2 = dr(ek, dk, eo2 - eo1)
 print(do2)
+#bir class (instance of class değil) ancak bir key için geçerli
+#metaclass gibi bir şey lazım bence
+#ama çözemedim
+#bütün bu dediklerimin amacı encrypted object size ını 2/3 üne düşürmek (yaklaşık)
+#yoksa iş kolay
 
 class DamgardJurikPublicKey:
     def __init__(self, n, g, s):
