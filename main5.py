@@ -1,26 +1,18 @@
 import sympy, random, math, functools, operator, typing
 class GoldwasserMicaliEncrytedType:
-    def __init__(self, c):
-        self.c = tuple(c for c in c)
-    def __str__(self):
-        return functools.reduce(operator.add, (f"c[{i}]: " + str(self.c[i]) + "\n" for i in range(len(self.c))))
-    def __iter__(self):
-        for c in self.c: yield c
-class GoldwasserMicaliKey:
-    pass
+    def __init__(self, c): self.c = tuple(c for c in c)
+    def __str__(self): return functools.reduce(operator.add, (f"c[{i}]: " + str(self.c[i]) + "\n" for i in range(len(self.c))))
+    def __iter__(self): for c in self.c: yield c
+class GoldwasserMicaliKey: pass
 class GoldwasserMicaliPrivateKey(GoldwasserMicaliKey):
-    def __init__(self):
-        self.p, self.q = tuple(sympy.randprime(2 << 256, 2 << 288) for _ in range(2))
-    def __call__(self, c: GoldwasserMicaliEncrytedType) -> typing.Tuple[int]:
-        return tuple(int(sympy.legendre_symbol(c, self.p) != 1 or sympy.legendre_symbol(c, self.q) != 1) for c in c)
+    def __init__(self): self.p, self.q = tuple(sympy.randprime(2 << 256, 2 << 288) for _ in range(2))
+    def __call__(self, c: GoldwasserMicaliEncrytedType) -> typing.Tuple[int]: return tuple(int(sympy.legendre_symbol(c, self.p) != 1 or sympy.legendre_symbol(c, self.q) != 1) for c in c)
 class GoldwasserMicaliPublicKey(GoldwasserMicaliKey):
     def __init__(self, private_key: GoldwasserMicaliPrivateKey):
         self.n = private_key.p * private_key.q
-        while math.gcd(x := random.randrange(1, self.n), self.n) != 1 \
-                or sympy.legendre_symbol(x, private_key.p) != -1 or sympy.legendre_symbol(x, private_key.q) != -1: pass
+        while math.gcd(x := random.randrange(1, self.n), self.n) != 1 or sympy.legendre_symbol(x, private_key.p) != -1 or sympy.legendre_symbol(x, private_key.q) != -1: pass
         self.x = x
-    def __call__(self, m: typing.Tuple[int]):
-        return GoldwasserMicaliEncrytedType(pow((f := lambda: y if math.gcd(y := random.randrange(1, self.n + 1), self.n) == 1 else f())(), 2, self.n) * pow(self.x, m, self.n) % self.n for m in m)
+    def __call__(self, m: typing.Tuple[int]): return GoldwasserMicaliEncrytedType(pow((f := lambda: y if math.gcd(y := random.randrange(1, self.n + 1), self.n) == 1 else f())(), 2, self.n) * pow(self.x, m, self.n) % self.n for m in m)
 sk = GoldwasserMicaliPrivateKey()
 pk = GoldwasserMicaliPublicKey(sk)
 print(pk((1, 0, 1)))
